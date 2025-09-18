@@ -5,8 +5,8 @@ pipeline {
 	    jdk "OracleJDK8"
 	}
     environment{
-        registry = "dockingsumit/vproappimage" // use your own app image or this image
-        registryCredential = "dockerhub-id"    // save your own dockerhub credentials in jenkins and provide its ID
+        registry = "daisyviolet/cicd-app" // use your own app image or this image
+        registryCredential = "dockerhub"    // save your own dockerhub credentials in jenkins and provide its ID
     }
     stages{
         // Builds the source code 
