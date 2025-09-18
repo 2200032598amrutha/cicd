@@ -7,15 +7,15 @@ pipeline {
     }
 
     environment {
-        registry = "daisyviolet/cicd-app" // use your own app image or this image
-        registryCredential = "dockerhub"  // save your own dockerhub credentials in jenkins and provide its ID
+        registry = "daisyviolet/cicd-app" // your Docker Hub repository
+        registryCredential = "dockerhub"  // Jenkins credentials ID for Docker Hub
     }
 
     stages {
-        // Builds the source code 
+        // Builds the source code
         stage('Build') {
             steps {
-                sh 'mvn clean install -DskipTests'
+                bat 'mvn clean install -DskipTests'
             }
             post {
                 success {
@@ -28,37 +28,37 @@ pipeline {
         // Test the source code using Maven
         stage('Test') {
             steps {
-                sh 'mvn test'
+                bat 'mvn test'
             }
         }
 
         // Test the code quality using checkstyle analysis
         stage('Checkstyle Analysis') {
             steps {
-                sh 'mvn checkstyle:checkstyle'
+                bat 'mvn checkstyle:checkstyle'
             }
         }
 
-        // Tests the code quality using sonarqube analysis
+        // Tests the code quality using SonarQube analysis
         stage('Sonar Analysis') {
             environment {
-                scannerHome = tool 'sonar4.8' // sonar-scanner name
+                scannerHome = tool 'sonar4.8' // sonar-scanner installation name
             }
             steps {
                 withSonarQubeEnv('Sonar-server') {
-                    sh '''${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=vprofile \
-                       -Dsonar.projectName=vprofile \
-                       -Dsonar.projectVersion=1.0 \
-                       -Dsonar.sources=src/ \
-                       -Dsonar.java.binaries=target/test-classes/com/visualpathit/account/controllerTest/ \
-                       -Dsonar.junit.reportsPath=target/surefire-reports/ \
-                       -Dsonar.jacoco.reportsPath=target/jacoco.exec \
-                       -Dsonar.java.checkstyle.reportPaths=target/checkstyle-result.xml'''
+                    bat """${scannerHome}\\bin\\sonar-scanner.bat -Dsonar.projectKey=vprofile ^
+                       -Dsonar.projectName=vprofile ^
+                       -Dsonar.projectVersion=1.0 ^
+                       -Dsonar.sources=src/ ^
+                       -Dsonar.java.binaries=target/test-classes/com/visualpathit/account/controllerTest/ ^
+                       -Dsonar.junit.reportsPath=target/surefire-reports/ ^
+                       -Dsonar.jacoco.reportsPath=target/jacoco.exec ^
+                       -Dsonar.java.checkstyle.reportPaths=target/checkstyle-result.xml"""
                 }
             }
         }
 
-        // Fetches the test results of sonarqube analysis through a webhook by using a defined quality gate
+        // Fetches the test results of SonarQube analysis through quality gate
         stage("Quality Gate") {
             steps {
                 timeout(time: 1, unit: 'HOURS') {
@@ -67,16 +67,16 @@ pipeline {
             }
         }
 
-        // Builds the docker app image and assigns a tag
+        // Builds the Docker app image and assigns a tag
         stage('Building image') {
             steps {
                 script {
-                    dockerImage = docker.build registry + ":$BUILD_NUMBER"
+                    dockerImage = docker.build("%registry%:%BUILD_NUMBER%")
                 }
             }
         }
 
-        // Uploads the built image to dockerhub
+        // Uploads the built image to Docker Hub
         stage('Upload Image') {
             steps {
                 script {
@@ -88,18 +88,18 @@ pipeline {
             }
         }
 
-        // Removes the unused docker image to clean up disk space
+        // Removes the unused Docker image to clean up disk space
         stage('Remove Unused docker image') {
             steps {
-                sh "docker rmi $registry:$BUILD_NUMBER"
+                bat "docker rmi %registry%:%BUILD_NUMBER%"
             }
         }
 
-        // Finally fetch the latest image from dockerhub and deploy it on kubernetes cluster using helm command
+        // Kubernetes deployment (if running on Windows node, make sure helm is installed)
         stage('Kubernetes Deploy') {
             agent { label 'KOPS' }
             steps {
-                sh "helm upgrade --install --force vprofile-stack helm/vprofilecharts --set appimage=${registry}:${BUILD_NUMBER} --namespace prod"
+                bat "helm upgrade --install --force vprofile-stack helm/vprofilecharts --set appimage=%registry%:%BUILD_NUMBER% --namespace prod"
             }
         }
     }
